@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "photoURL": { "type": "string", "description": "User's profile photo URL." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user account was created." }
+      },
+      "required": ["uid", "email"]
+    },
+    "Detection": {
+      "title": "Detection",
+      "description": "A plant disease detection record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique detection ID." },
+        "userId": { "type": "string", "description": "ID of the user who performed the detection." },
+        "plantName": { "type": "string", "description": "Name of the plant." },
+        "diseaseName": { "type": "string", "description": "Detected disease name." },
+        "confidence": { "type": "number", "description": "Confidence score of the detection." },
+        "severity": { "type": "string", "description": "Severity level (Low, Medium, High)." },
+        "pesticide": { "type": "string", "description": "Recommended pesticide." },
+        "dosage": { "type": "string", "description": "Recommended dosage." },
+        "organicAlternative": { "type": "string", "description": "Recommended organic alternative." },
+        "yieldLossEstimate": { "type": "string", "description": "Estimated yield loss percentage." },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          }
+        },
+        "imageUrl": { "type": "string", "description": "Base64 or URL of the leaf image." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the detection was performed." }
+      },
+      "required": ["userId", "plantName", "diseaseName", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in the chat history.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user." },
+        "role": { "type": "string", "enum": ["user", "model"], "description": "Role of the message sender." },
+        "content": { "type": "string", "description": "Content of the message." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["userId", "role", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/detections/{detectionId}": {
+      "schema": "Detection",
+      "description": "Plant disease detection records."
+    },
+    "/chats/{chatId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages between user and AI doctor."
+    }
+  }
+}
