@@ -49,6 +49,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import imageCompression from 'browser-image-compression';
 
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -200,7 +201,7 @@ const Landing = () => {
         <h1 className="text-5xl font-serif italic mb-4 text-gray-900">PlantDoc AI</h1>
         <p className="text-gray-500 mb-8 leading-relaxed">The professional SaaS platform for precision agriculture. Detect diseases, optimize yield, and track regional outbreaks in real-time.</p>
         
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8 flex flex-col items-center gap-4">
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8 hidden sm:flex flex-col items-center gap-4">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Scan to Open on Mobile</p>
           <div className="p-4 bg-gray-50 rounded-2xl">
             <QRCodeSVG value={appUrl} size={150} />
@@ -282,36 +283,51 @@ function PlantApp() {
     setLastResult(null);
 
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const result = await detectDisease(base64);
-        
-        // Get location
-        let location = undefined;
-        try {
-          const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-          location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        } catch (e) {
-          console.warn("Location access denied");
-        }
-
-        const detectionData: Detection = {
-          userId: user.uid,
-          ...result,
-          location,
-          imageUrl: reader.result as string,
-          createdAt: new Date().toISOString()
-        };
-
-        const path = 'detections';
-        await addDoc(collection(db, path), detectionData).catch(err => handleFirestoreError(err, OperationType.CREATE, path));
-        setLastResult(detectionData);
-        setIsDetecting(false);
+      // Compress image
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
       };
-      reader.readAsDataURL(file);
+      const compressedFile = await imageCompression(file, options);
+
+      const reader = new FileReader();
+      const fileData = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(compressedFile);
+      });
+
+      const mimeType = compressedFile.type || "image/jpeg";
+      const base64 = fileData.split(',')[1];
+      const result = await detectDisease(base64, mimeType);
+      
+      // Get location
+      let location = undefined;
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) => {
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 });
+        });
+        location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch (e) {
+        console.warn("Location access denied or timed out");
+      }
+
+      const detectionData: Detection = {
+        userId: user.uid,
+        ...result,
+        location,
+        imageUrl: fileData,
+        createdAt: new Date().toISOString()
+      };
+
+      const path = 'detections';
+      await addDoc(collection(db, path), detectionData).catch(err => handleFirestoreError(err, OperationType.CREATE, path));
+      setLastResult(detectionData);
     } catch (err) {
-      console.error(err);
+      console.error("Detection error:", err);
+      alert("Failed to analyze the leaf. Please try again with a clearer photo.");
+    } finally {
       setIsDetecting(false);
     }
   };
@@ -378,27 +394,69 @@ function PlantApp() {
                 </div>
               </header>
 
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="aspect-square md:aspect-video bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all group relative overflow-hidden"
-              >
-                {isDetecting ? (
-                  <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="animate-spin text-emerald-600" size={48} />
-                    <p className="text-gray-500 font-medium animate-pulse">Analyzing leaf cellular structure...</p>
-                  </div>
-                ) : lastResult ? (
-                  <img src={lastResult.imageUrl} className="w-full h-full object-cover" alt="Leaf" />
-                ) : (
-                  <>
-                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-4 group-hover:scale-110 transition-transform">
-                      <Camera size={32} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.setAttribute('capture', 'environment');
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                  className="aspect-square md:aspect-video bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all group relative overflow-hidden"
+                >
+                  {isDetecting ? (
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="animate-spin text-emerald-600" size={48} />
+                      <p className="text-gray-500 font-medium animate-pulse text-center px-4">Analyzing leaf cellular structure...</p>
                     </div>
-                    <p className="text-lg font-medium text-gray-900">Capture or Upload Leaf</p>
-                    <p className="text-sm text-gray-400">Supported: JPG, PNG, HEIC</p>
-                  </>
-                )}
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                  ) : lastResult ? (
+                    <img src={lastResult.imageUrl} className="w-full h-full object-cover" alt="Leaf" />
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-4 group-hover:scale-110 transition-transform">
+                        <Camera size={32} />
+                      </div>
+                      <p className="text-lg font-medium text-gray-900">Take Photo</p>
+                      <p className="text-sm text-gray-400">Use your camera</p>
+                    </>
+                  )}
+                </div>
+
+                <div 
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.removeAttribute('capture');
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                  className="aspect-square md:aspect-video bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all group relative overflow-hidden"
+                >
+                  {isDetecting ? (
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="animate-spin text-emerald-600" size={48} />
+                      <p className="text-gray-500 font-medium animate-pulse text-center px-4">Processing image...</p>
+                    </div>
+                  ) : lastResult ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
+                      <p className="text-xs">New analysis will replace this</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-4 group-hover:scale-110 transition-transform">
+                        <Upload size={32} />
+                      </div>
+                      <p className="text-lg font-medium text-gray-900">Upload Image</p>
+                      <p className="text-sm text-gray-400">From your gallery</p>
+                    </>
+                  )}
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="sr-only" />
               </div>
 
               {lastResult && (

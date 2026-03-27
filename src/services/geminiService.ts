@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export async function detectDisease(base64Image: string) {
+export async function detectDisease(base64Image: string, mimeType: string = "image/jpeg") {
   const model = "gemini-3-flash-preview";
   const prompt = `Analyze this plant leaf image. 
   Identify the plant name, the disease (if any), confidence score (0-1), severity (Low, Medium, High), 
@@ -14,7 +14,7 @@ export async function detectDisease(base64Image: string) {
     contents: {
       parts: [
         { text: prompt },
-        { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+        { inlineData: { data: base64Image, mimeType } }
       ]
     },
     config: {

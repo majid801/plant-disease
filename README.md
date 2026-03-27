@@ -1,20 +1,39 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# PlantDoc AI - Vercel Deployment Guide
 
-# Run and deploy your AI Studio app
+This app is optimized for Vercel deployment. Follow these steps to deploy:
 
-This contains everything you need to run your app locally.
+## 1. Prerequisites
+- A [Vercel](https://vercel.com) account.
+- [Vercel CLI](https://vercel.com/cli) installed (optional, you can also use the web dashboard).
 
-View your app in AI Studio: https://ai.studio/apps/17993802-a089-46e0-b6c5-8cb4fc871a89
+## 2. Environment Variables
+You MUST set the following environment variables in your Vercel project settings:
+- `GEMINI_API_KEY`: Your Google Gemini API Key.
 
-## Run Locally
+### Firebase Configuration (Optional if using firebase-applet-config.json)
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_FIRESTORE_DATABASE_ID` (Optional)
 
-**Prerequisites:**  Node.js
+## 3. Deployment Steps (Web Dashboard)
+1. Push your code to a GitHub/GitLab/Bitbucket repository.
+2. Go to [Vercel Dashboard](https://vercel.com/new).
+3. Import your repository.
+4. In the "Environment Variables" section, add `GEMINI_API_KEY`.
+5. Click **Deploy**.
 
+## 4. Deployment Steps (CLI)
+1. Run `vercel login`.
+2. Run `vercel`.
+3. Follow the prompts.
+4. Add the environment variable: `vercel env add GEMINI_API_KEY`.
+5. Run `vercel --prod` to deploy to production.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 5. App-Friendly Features
+- **PWA Support**: The app includes a `manifest.json` for "Add to Home Screen" support.
+- **SPA Routing**: The `vercel.json` handles client-side routing.
+- **Image Compression**: Automatically handles large mobile photos.
