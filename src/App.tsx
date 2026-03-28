@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } f
 import { 
   Camera, 
   Upload, 
-  Map as MapIcon, 
   LayoutDashboard, 
   MessageSquare, 
-  LogOut, 
   User as UserIcon, 
   AlertTriangle, 
   Droplets, 
@@ -18,17 +16,12 @@ import {
   Share2
 } from 'lucide-react';
 import { 
-  useAuthState, 
-  useSignInWithGoogle 
-} from 'react-firebase-hooks/auth';
-import { 
   collection, 
   query, 
   where, 
   orderBy, 
   addDoc, 
   onSnapshot, 
-  serverTimestamp, 
   doc, 
   setDoc,
   getDoc
@@ -50,8 +43,6 @@ import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import imageCompression from 'browser-image-compression';
-
-import { QRCodeSVG } from 'qrcode.react';
 
 // --- Utils ---
 function cn(...inputs: ClassValue[]) {
@@ -102,6 +93,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 // --- Types ---
+const GUEST_USER = {
+  uid: 'guest_user_id',
+  email: 'guest@example.com',
+  displayName: 'Guest Farmer',
+  photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'
+};
+
 interface Detection {
   id?: string;
   userId: string;
@@ -128,20 +126,21 @@ interface ChatMessage {
 
 // --- Components ---
 
-const Navbar = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (t: string) => void, user: any }) => {
+const Navbar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => {
+  const appUrl = window.location.origin;
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'PlantDoc AI',
           text: 'Check out this AI-powered plant disease detection app!',
-          url: window.location.origin,
+          url: appUrl,
         });
       } catch (err) {
         console.error('Error sharing:', err);
       }
     } else {
-      navigator.clipboard.writeText(window.location.origin);
+      navigator.clipboard.writeText(appUrl);
       alert('Link copied to clipboard!');
     }
   };
@@ -160,10 +159,6 @@ const Navbar = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiv
           <LayoutDashboard size={24} />
           <span className="text-[10px] font-medium uppercase tracking-wider">Stats</span>
         </button>
-        <button onClick={() => setActiveTab('heatmap')} className={cn("flex flex-col items-center gap-1 transition-colors", activeTab === 'heatmap' ? "text-emerald-600" : "text-gray-400")}>
-          <MapIcon size={24} />
-          <span className="text-[10px] font-medium uppercase tracking-wider">Map</span>
-        </button>
         <button onClick={() => setActiveTab('chat')} className={cn("flex flex-col items-center gap-1 transition-colors", activeTab === 'chat' ? "text-emerald-600" : "text-gray-400")}>
           <MessageSquare size={24} />
           <span className="text-[10px] font-medium uppercase tracking-wider">Doctor</span>
@@ -177,53 +172,16 @@ const Navbar = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiv
         <button onClick={handleShare} className="text-gray-400 hover:text-emerald-600 transition-colors">
           <Share2 size={24} />
         </button>
-        <button onClick={() => auth.signOut()} className="text-gray-400 hover:text-red-500 transition-colors">
-          <LogOut size={24} />
-        </button>
-        <img src={user?.photoURL || ''} className="w-8 h-8 rounded-full border border-gray-200" alt="Profile" />
+        <div className="w-8 h-8 rounded-full border border-gray-200 bg-emerald-50 flex items-center justify-center text-emerald-600">
+          <UserIcon size={16} />
+        </div>
       </div>
     </nav>
   );
 };
 
-const Landing = () => {
-  const [signInWithGoogle] = useSignInWithGoogle(auth);
-  const appUrl = window.location.origin;
-
-  return (
-    <div className="min-h-screen bg-[#FDFCFB] flex flex-col items-center justify-center p-6 text-center">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full"
-      >
-        <div className="w-20 h-20 bg-emerald-600 rounded-3xl flex items-center justify-center text-white font-bold text-4xl mx-auto mb-8 shadow-xl shadow-emerald-100">P</div>
-        <h1 className="text-5xl font-serif italic mb-4 text-gray-900">PlantDoc AI</h1>
-        <p className="text-gray-500 mb-8 leading-relaxed">The professional SaaS platform for precision agriculture. Detect diseases, optimize yield, and track regional outbreaks in real-time.</p>
-        
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8 hidden sm:flex flex-col items-center gap-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Scan to Open on Mobile</p>
-          <div className="p-4 bg-gray-50 rounded-2xl">
-            <QRCodeSVG value={appUrl} size={150} />
-          </div>
-          <p className="text-[10px] text-gray-400 font-mono">{appUrl}</p>
-        </div>
-
-        <button 
-          onClick={() => signInWithGoogle()}
-          className="w-full bg-gray-900 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-black transition-all shadow-lg"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-          Continue with Google
-        </button>
-        <p className="mt-8 text-xs text-gray-400 uppercase tracking-widest font-medium">Trusted by 10,000+ Farmers Worldwide</p>
-      </motion.div>
-    </div>
-  );
-};
-
 function PlantApp() {
-  const [user, loading] = useAuthState(auth);
+  const user = GUEST_USER;
   const [activeTab, setActiveTab] = useState('detect');
   const [isDetecting, setIsDetecting] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
@@ -233,27 +191,24 @@ function PlantApp() {
   const [isChatting, setIsChatting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Auth & Profile ---
+  // --- Profile ---
   useEffect(() => {
-    if (user) {
-      const path = `users/${user.uid}`;
-      getDoc(doc(db, path)).then(snap => {
-        if (!snap.exists()) {
-          setDoc(doc(db, path), {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            createdAt: new Date().toISOString()
-          }).catch(err => handleFirestoreError(err, OperationType.WRITE, path));
-        }
-      }).catch(err => handleFirestoreError(err, OperationType.GET, path));
-    }
-  }, [user]);
+    const path = `users/${user.uid}`;
+    getDoc(doc(db, path)).then(snap => {
+      if (!snap.exists()) {
+        setDoc(doc(db, path), {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          createdAt: new Date().toISOString()
+        }).catch(err => handleFirestoreError(err, OperationType.WRITE, path));
+      }
+    }).catch(err => handleFirestoreError(err, OperationType.GET, path));
+  }, []);
 
   // --- Real-time Data ---
   useEffect(() => {
-    if (!user) return;
     const path = 'detections';
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -261,10 +216,9 @@ function PlantApp() {
       setDetections(data);
     }, (err) => handleFirestoreError(err, OperationType.GET, path));
     return unsubscribe;
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
     const path = 'chats';
     const q = query(collection(db, path), where('userId', '==', user.uid), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -272,12 +226,12 @@ function PlantApp() {
       setChatMessages(data);
     }, (err) => handleFirestoreError(err, OperationType.GET, path));
     return unsubscribe;
-  }, [user]);
+  }, []);
 
   // --- Handlers ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
 
     setIsDetecting(true);
     setLastResult(null);
@@ -285,8 +239,8 @@ function PlantApp() {
     try {
       // Compress image
       const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
+        maxSizeMB: 0.5, // Reduced size for faster mobile processing
+        maxWidthOrHeight: 800, // Reduced resolution for faster mobile processing
         useWebWorker: true,
       };
       const compressedFile = await imageCompression(file, options);
@@ -302,21 +256,9 @@ function PlantApp() {
       const base64 = fileData.split(',')[1];
       const result = await detectDisease(base64, mimeType);
       
-      // Get location
-      let location = undefined;
-      try {
-        const pos = await new Promise<GeolocationPosition>((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 });
-        });
-        location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      } catch (e) {
-        console.warn("Location access denied or timed out");
-      }
-
       const detectionData: Detection = {
         userId: user.uid,
         ...result,
-        location,
         imageUrl: fileData,
         createdAt: new Date().toISOString()
       };
@@ -326,14 +268,14 @@ function PlantApp() {
       setLastResult(detectionData);
     } catch (err) {
       console.error("Detection error:", err);
-      alert("Failed to analyze the leaf. Please try again with a clearer photo.");
+      alert("Analysis failed. Please ensure you have a stable internet connection and try again.");
     } finally {
       setIsDetecting(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user || isChatting) return;
+    if (!newMessage.trim() || isChatting) return;
     
     const msg = newMessage;
     setNewMessage('');
@@ -366,12 +308,9 @@ function PlantApp() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={48} /></div>;
-  if (!user) return <Landing />;
-
   return (
     <div className="min-h-screen bg-[#FDFCFB] pb-24 md:pb-0 md:pl-20">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="max-w-4xl mx-auto p-6">
         <AnimatePresence mode="wait">
@@ -576,57 +515,6 @@ function PlantApp() {
                     </ResponsiveContainer>
                   </div>
                   <p className="text-xs text-center text-gray-400 mt-4 italic">Bubble size indicates severity level</p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'heatmap' && (
-            <motion.div 
-              key="heatmap"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
-            >
-              <header>
-                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">Regional Intelligence</p>
-                <h2 className="text-4xl font-serif italic text-gray-900">Outbreak Heatmap</h2>
-              </header>
-
-              <div className="bg-gray-900 rounded-3xl aspect-square md:aspect-video relative overflow-hidden flex items-center justify-center">
-                {/* Mock Map Visualization */}
-                <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-                <div className="relative w-full h-full p-12">
-                  {detections.filter(d => d.location).map((d, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]"
-                      style={{
-                        left: `${((d.location!.longitude + 180) % 360) / 3.6}%`,
-                        top: `${((90 - d.location!.latitude) % 180) / 1.8}%`
-                      }}
-                    >
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white px-2 py-1 rounded text-[8px] font-bold whitespace-nowrap text-gray-900 shadow-lg">
-                        {d.diseaseName}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-                <div className="absolute bottom-6 left-6 bg-white/10 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
-                  <p className="text-white text-xs font-bold uppercase tracking-widest mb-2">Live Feed</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                      <span className="text-[10px] text-gray-300">High Severity Outbreak (North)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] text-gray-300">Stable Regions (South)</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </motion.div>

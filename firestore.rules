@@ -96,22 +96,15 @@ service cloud.firestore {
     // Rules
     // ===============================================================
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.uid == resource.data.uid;
+      allow read, write: if true; // Allow public access for guest mode
     }
 
     match /detections/{detectionId} {
-      // Detections are readable by the owner or by everyone for the heatmap (only location and disease)
-      // But for simplicity in this hackathon app, let's allow authenticated users to read all for the heatmap
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidDetection(request.resource.data);
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, write: if true; // Allow public access for guest mode
     }
 
     match /chats/{chatId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && isValidChat(request.resource.data);
+      allow read, write: if true; // Allow public access for guest mode
     }
 
     // Default deny
