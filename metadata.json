@@ -1,5 +1,5 @@
 {
   "name": "PlantDoc AI",
   "description": "Advanced AI-powered plant disease detection, treatment recommender, and regional outbreak heatmap for farmers.",
-  "requestFramePermissions": ["camera", "geolocation"]
+  "requestFramePermissions": ["camera", "geolocation", "microphone"]
 }

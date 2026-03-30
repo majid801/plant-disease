@@ -20,25 +20,27 @@
       "properties": {
         "id": { "type": "string", "description": "Unique detection ID." },
         "userId": { "type": "string", "description": "ID of the user who performed the detection." },
-        "plantName": { "type": "string", "description": "Name of the plant." },
-        "diseaseName": { "type": "string", "description": "Detected disease name." },
-        "confidence": { "type": "number", "description": "Confidence score of the detection." },
-        "severity": { "type": "string", "description": "Severity level (Low, Medium, High)." },
-        "pesticide": { "type": "string", "description": "Recommended pesticide." },
-        "dosage": { "type": "string", "description": "Recommended dosage." },
-        "organicAlternative": { "type": "string", "description": "Recommended organic alternative." },
-        "yieldLossEstimate": { "type": "string", "description": "Estimated yield loss percentage." },
-        "location": {
-          "type": "object",
-          "properties": {
-            "latitude": { "type": "number" },
-            "longitude": { "type": "number" }
+        "analyses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "crop": { "type": "string" },
+              "issue": { "type": "string" },
+              "severity": { "type": "integer" },
+              "confidence": { "type": "number" },
+              "chemicalPath": { "type": "string" },
+              "organicPath": { "type": "string" }
+            }
           }
         },
-        "imageUrl": { "type": "string", "description": "Base64 or URL of the leaf image." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "When the detection was performed." }
+        "fieldSummary": { "type": "string" },
+        "imageUrls": { "type": "array", "items": { "type": "string" } },
+        "soilType": { "type": "string" },
+        "growthStage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "plantName", "diseaseName", "createdAt"]
+      "required": ["userId", "analyses", "fieldSummary", "createdAt"]
     },
     "ChatMessage": {
       "title": "ChatMessage",
